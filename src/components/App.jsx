@@ -1,65 +1,83 @@
-import React, { Component } from 'react';
-import ContactForm from './contactform/ContactForm';
-import ContactList from './contactlist/ContactList';
-import Filter from './filter/Filter';
-import styled from 'styled-components';
+import React from 'react';
+import Searchbar from './Searchbar/Searchbar';
+import ImageGallery from './ImageGallery/ImageGallery';
+import Loader from './Loader/Loader';
+import Button from './Button/Button';
+import Modal from './Modal/Modal';
+import axios from "axios";
+import './styles.css';
 
-const CenteredContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
-`;
-
-class App extends Component {
+class App extends React.Component {
   state = {
-    contacts: [{id: 'id-1', name: 'Rosie Simpson', number: '459-12-56'},
-    {id: 'id-2', name: 'Hermione Kline', number: '443-89-12'},
-    {id: 'id-3', name: 'Eden Clements', number: '645-17-79'},
-    {id: 'id-4', name: 'Annie Copeland', number: '227-91-26'},],
-    filter: '',
+    images: [],
+    loading: false,
+    page: 1,
+    query: '',
+    largeImageURL: null,
+    totalHits: 0, 
   };
 
-  deleteContact = (id) => {
-    this.setState(prevState => ({
-      contacts: prevState.contacts.filter(contact => contact.id !== id)
+  componentDidUpdate(prevProps, prevState) {
+    if (prevState.query !== this.state.query || prevState.page !== this.state.page) {
+      this.fetchImages();
+    }
+  }
+
+  fetchImages = async () => {
+    const { query, page } = this.state;
+    this.setState({ loading: true });
+    
+    axios.defaults.baseURL = 'https://pixabay.com/api/';
+    const API_KEY = '41381953-52e5df98c87cb4432701fae66'
+    
+    const settings = {
+       params: {
+         key: API_KEY,
+         q: query,
+         page,
+         per_page: 12
+       }
+    }
+
+    const data = await (await axios.get('', settings)).data
+
+    this.setState(state => ({
+      images: [...state.images, ...data.hits],
+      loading: false,
+      totalHits: data.totalHits, 
     }));
   };
 
-  handleAddContact = (newContact) => {
-    const doesExist = this.state.contacts.some(
-      contact => contact.name.toLowerCase() === newContact.name.toLowerCase()
-    );
-
-    if (doesExist) {
-      alert(`${newContact.name} is already in contacts.`);
-    } else {
-      this.setState(prevState => ({
-        contacts: [newContact, ...prevState.contacts]
-      }));
-    }
+  handleSearch = query => {
+     if (!query.trim()) return;
+    this.setState({ images: [], query, page: 1 });
   };
 
-  handleFilterChange = (event) => {
-    this.setState({ filter: event.target.value });
+  loadMore = () => {
+    this.setState(state => ({ page: state.page + 1 }));
+  };
+
+  openModal = largeImageURL => {
+    this.setState({ largeImageURL });
+  };
+
+  closeModal = () => {
+    this.setState({ largeImageURL: null });
   };
 
   render() {
-    const filteredContacts = this.state.contacts.filter(contact =>
-      contact.name.toLowerCase().includes(this.state.filter.toLowerCase())
-    );
+    const { images, loading, largeImageURL, totalHits } = this.state;
 
     return (
-      <CenteredContainer>
-        <h1>Phonebook</h1>
-        <ContactForm onAdd={this.handleAddContact} />
-        <h2>Contacts</h2>
-        <Filter value={this.state.filter} onChange={this.handleFilterChange} />
-        <ContactList contacts={filteredContacts} onDelete={this.deleteContact} />
-      </CenteredContainer>
+      <div className="App">
+        <Searchbar onSubmit={this.handleSearch} />
+        {loading && <Loader />}
+        <ImageGallery images={images} onSelect={this.openModal} />
+        {images.length > 0 && images.length < totalHits && !loading && <Button onClick={this.loadMore} />} 
+        {largeImageURL && <Modal largeImageURL={largeImageURL} onClose={this.closeModal} />}
+      </div>
     );
   }
-};
+}
 
 export default App;
